@@ -6,4 +6,3 @@ openpyxl
 uvicorn
 openai
 requests
-os
