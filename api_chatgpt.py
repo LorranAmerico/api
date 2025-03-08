@@ -2,6 +2,7 @@ import openai
 import requests
 from flask import Flask, request, jsonify
 import os
+import re
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
@@ -30,21 +31,21 @@ def ping():
 
 # Função para interpretar a mensagem do usuário e decidir se deve buscar na API ou usar a IA
 def interpretar_mensagem(user_message):
-    palavras_chave = ["referência", "código", "produto", "buscar", "detalhes", "informações"]
-    palavras = user_message.lower().split()
+    numeros = re.findall(r'\d+', user_message)
+    palavras_chave = ["referência", "buscar", "produto", "item", "código"]
     
-    for palavra in palavras:
-        if palavra.isdigit():  # Se encontrar um número na mensagem, busca na API
-            resultado = buscar_referencia(palavra)
-            if "erro" in resultado:
-                return resultado["erro"]
-            return (f"Detalhes da referência {palavra}: \n"
-                    f"Descrição: {resultado.get('Descricao da Referencia', 'N/A')}\n"
-                    f"Grupo: {resultado.get('Grupo', 'N/A')}\n"
-                    f"SubGrupo: {resultado.get('SubGrupo1', 'N/A')}\n"
-                    f"Valor de Venda: R${resultado.get('Venda_Valor', 'N/A')}")
+    if numeros and any(palavra in user_message.lower() for palavra in palavras_chave):
+        codigo = numeros[0]  # Pega o primeiro número encontrado
+        resultado = buscar_referencia(codigo)
+        if "erro" in resultado:
+            return resultado["erro"]
+        return (f"Aqui estão os detalhes da referência {codigo}:\n"
+                f"- Descrição: {resultado.get('Descricao da Referencia', 'N/A')}\n"
+                f"- Grupo: {resultado.get('Grupo', 'N/A')}\n"
+                f"- SubGrupo: {resultado.get('SubGrupo1', 'N/A')}\n"
+                f"- Valor de Venda: R${resultado.get('Venda_Valor', 'N/A')}")
     
-    # Se não encontrar números, chamar o ChatGPT
+    # Se não encontrar números relevantes, chamar o ChatGPT
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
