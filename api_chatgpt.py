@@ -22,6 +22,10 @@ def buscar_referencia(codigo):
         return {"erro": "Referência não encontrada"}
     else:
         return {"erro": "Falha na comunicação com a API"}
+        
+@app.route('/ping')
+def ping():
+    return "pong", 200
 
 # Função para chamar o ChatGPT
 def chat_with_gpt(user_message):
