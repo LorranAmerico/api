@@ -3,69 +3,68 @@ import requests
 from flask import Flask, request, jsonify
 import os
 
-# Obtendo a chave da OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# URL da API de busca de referências
+# URL da API de referência
 API_URL = "https://api-excel-bot.onrender.com/buscar"
 
-# Criando a API Flask
+# Criando a API do bot
 app = Flask(__name__)
 
-# Função para buscar referência na API externa
+# Função para buscar dados na API de referência
 def buscar_referencia(codigo):
-    try:
-        url = f"{API_URL}?Codigo%20da%20Referencia={codigo}"
-        response = requests.get(url)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        return {"erro": f"Falha na comunicação com a API: {str(e)}"}
+    url = f"{API_URL}?Codigo%20da%20Referencia={codigo}"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        dados = response.json()
+        if dados:
+            return dados[0]  # Retorna o primeiro item da lista
+        return {"erro": "Nenhum dado encontrado para esta referência"}
+    elif response.status_code == 404:
+        return {"erro": "Referência não encontrada"}
+    else:
+        return {"erro": f"Falha na comunicação com a API: {response.status_code}"}
 
-# Rota de teste
 @app.route('/ping')
 def ping():
     return "pong", 200
 
-# Função para interpretar a intenção da mensagem usando OpenAI
+# Função para interpretar a mensagem do usuário e decidir se deve buscar na API ou usar a IA
 def interpretar_mensagem(user_message):
+    palavras_chave = ["referência", "código", "produto", "buscar", "detalhes", "informações"]
+    for palavra in palavras_chave:
+        if palavra in user_message.lower():
+            palavras = user_message.split()
+            for palavra in palavras:
+                if palavra.isdigit():  # Se encontrar um número na mensagem
+                    return buscar_referencia(palavra)
+    
+    # Se não encontrar palavras-chave, chamar o ChatGPT
     try:
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-1106",
-            messages=[
-                {"role": "system", "content": "Você é um assistente que responde com base na API Excel Bot."},
-                {"role": "user", "content": user_message}
-            ]
+            messages=[{"role": "system", "content": "Você é um assistente que responde com base na API Excel Bot."},
+                      {"role": "user", "content": user_message}],
+            api_key=OPENAI_API_KEY
         )
-        return response.choices[0].message.content
+        return response["choices"][0]["message"]["content"]
     except openai.OpenAIError as e:
         return f"Erro ao se comunicar com OpenAI: {str(e)}"
 
-# Rota do chatbot
+# Endpoint do chatbot
 @app.route("/chat", methods=["POST"])
 def chat():
-    try:
-        data = request.get_json()
-        user_message = data.get("message", "").strip()
+    data = request.json
+    user_message = data.get("message", "").strip()
+    
+    if not user_message:
+        return jsonify({"response": "Mensagem inválida ou vazia."}), 400
+    
+    resposta = interpretar_mensagem(user_message)
+    return jsonify({"response": resposta})
 
-        if not user_message:
-            return jsonify({"response": "Mensagem inválida. Tente novamente."}), 400
-
-        # Primeiro, tentar extrair uma referência
-        palavras = user_message.lower().split()
-        for palavra in palavras:
-            if palavra.isdigit():  # Se encontrar um número, assume que é uma referência
-                resultado = buscar_referencia(palavra)
-                return jsonify({"response": resultado})
-        
-        # Se não for uma busca, chama a OpenAI
-        resposta_chatgpt = interpretar_mensagem(user_message)
-        return jsonify({"response": resposta_chatgpt})
-    except Exception as e:
-        return jsonify({"response": f"Erro interno do servidor: {str(e)}"}), 500
-
-# Iniciar o servidor Flask
+# Rodar o servidor
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 
