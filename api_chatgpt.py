@@ -1,9 +1,9 @@
 import openai
 import requests
 from flask import Flask, request, jsonify
+import os
 
-# 🔑 Sua chave da OpenAI (substitua pela sua)
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # 🌐 URL da sua API
 API_URL = "https://api-excel-bot.onrender.com/buscar"
