@@ -34,7 +34,7 @@ def chat_with_gpt(user_message):
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "Você é um assistente que responde com base na API Excel Bot."},
                 {"role": "user", "content": user_message}
