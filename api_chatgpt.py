@@ -38,11 +38,14 @@ def interpretar_mensagem(user_message):
             palavras = user_message.split()
             for palavra in palavras:
                 if palavra.isdigit():  # Se encontrar um número na mensagem
-                    return buscar_referencia(palavra)
+                    resultado = buscar_referencia(palavra)
+                    if "erro" in resultado:
+                        return resultado["erro"]
+                    return f"Detalhes da referência {palavra}: {resultado}"
     
     # Se não encontrar palavras-chave, chamar o ChatGPT
     try:
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        client = openai.Client(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "system", "content": "Você é um assistente que responde com base na API Excel Bot."},
@@ -67,3 +70,4 @@ def chat():
 # Rodar o servidor
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
