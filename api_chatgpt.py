@@ -42,13 +42,13 @@ def interpretar_mensagem(user_message):
     
     # Se não encontrar palavras-chave, chamar o ChatGPT
     try:
-        response = openai.ChatCompletion.create(
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo-1106",
             messages=[{"role": "system", "content": "Você é um assistente que responde com base na API Excel Bot."},
-                      {"role": "user", "content": user_message}],
-            api_key=OPENAI_API_KEY
+                      {"role": "user", "content": user_message}]
         )
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     except openai.OpenAIError as e:
         return f"Erro ao se comunicar com OpenAI: {str(e)}"
 
@@ -67,5 +67,3 @@ def chat():
 # Rodar o servidor
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
-
