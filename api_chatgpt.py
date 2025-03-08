@@ -44,7 +44,7 @@ def interpretar_mensagem(user_message):
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
+            model="gpt-3.5-turbo",
             messages=[{"role": "system", "content": "Você é um assistente que responde com base na API Excel Bot."},
                       {"role": "user", "content": user_message}]
         )
