@@ -3,7 +3,7 @@ import requests
 from flask import Flask, request, jsonify
 
 # 🔑 Sua chave da OpenAI (substitua pela sua)
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = "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"
 
 # 🌐 URL da sua API
 API_URL = "https://api-excel-bot.onrender.com/buscar"
