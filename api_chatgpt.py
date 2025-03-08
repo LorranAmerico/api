@@ -3,71 +3,70 @@ import requests
 from flask import Flask, request, jsonify
 import os
 
+# Obtendo a chave da OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# 🌐 URL da sua API de busca
+# URL da API de busca de referências
 API_URL = "https://api-excel-bot.onrender.com/buscar"
 
-# Criando a API do bot
+# Criando a API Flask
 app = Flask(__name__)
 
-# Função para buscar dados na API externa
+# Função para buscar referência na API externa
 def buscar_referencia(codigo):
-    url = f"{API_URL}?Codigo%20da%20Referencia={codigo}"
     try:
+        url = f"{API_URL}?Codigo%20da%20Referencia={codigo}"
         response = requests.get(url)
         response.raise_for_status()
-        return response.json()  # Retorna os dados encontrados
-    except requests.exceptions.HTTPError as http_err:
-        return {"erro": f"Falha na comunicação com a API: {http_err}"}
-    except requests.exceptions.RequestException as err:
-        return {"erro": f"Erro inesperado ao conectar com a API: {err}"}
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        return {"erro": f"Falha na comunicação com a API: {str(e)}"}
 
-# Ping para testar se a API está no ar
+# Rota de teste
 @app.route('/ping')
 def ping():
     return "pong", 200
 
-# Função para chamar o ChatGPT e interpretar a intenção
+# Função para interpretar a intenção da mensagem usando OpenAI
 def interpretar_mensagem(user_message):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Você é um assistente que interpreta a intenção do usuário. Se ele quiser buscar uma referência, extraia o código e informe isso."},
+                {"role": "system", "content": "Você é um assistente que responde com base na API Excel Bot."},
                 {"role": "user", "content": user_message}
-            ],
-            api_key=OPENAI_API_KEY
+            ]
         )
-        return response["choices"][0]["message"]["content"]
-    except openai.error.OpenAIError as e:
+        return response.choices[0].message.content
+    except openai.OpenAIError as e:
         return f"Erro ao se comunicar com OpenAI: {str(e)}"
 
-# Endpoint do chatbot
+# Rota do chatbot
 @app.route("/chat", methods=["POST"])
 def chat():
-    data = request.json
-    user_message = data.get("message", "").strip()  # Evita erro de NoneType
+    try:
+        data = request.get_json()
+        user_message = data.get("message", "").strip()
 
-    if not user_message:
-        return jsonify({"response": "Mensagem vazia. Por favor, envie uma pergunta válida."})
+        if not user_message:
+            return jsonify({"response": "Mensagem inválida. Tente novamente."}), 400
 
-    # Primeiro, deixamos o ChatGPT interpretar a intenção
-    resposta_chatgpt = interpretar_mensagem(user_message)
+        # Primeiro, tentar extrair uma referência
+        palavras = user_message.lower().split()
+        for palavra in palavras:
+            if palavra.isdigit():  # Se encontrar um número, assume que é uma referência
+                resultado = buscar_referencia(palavra)
+                return jsonify({"response": resultado})
+        
+        # Se não for uma busca, chama a OpenAI
+        resposta_chatgpt = interpretar_mensagem(user_message)
+        return jsonify({"response": resposta_chatgpt})
+    except Exception as e:
+        return jsonify({"response": f"Erro interno do servidor: {str(e)}"}), 500
 
-    # Se a resposta indicar que é uma busca, extraímos o código e buscamos na API
-    if "buscar referência" in resposta_chatgpt.lower():
-        codigo = "".join(filter(str.isdigit, user_message))  # Pega apenas os números da mensagem
-        if codigo:
-            resultado = buscar_referencia(codigo)
-            return jsonify({"response": resultado})
-        else:
-            return jsonify({"response": "Não consegui identificar um código de referência na sua mensagem."})
-
-    # Caso contrário, retornamos a resposta normal da IA
-    return jsonify({"response": resposta_chatgpt})
-
-# Rodar o servidor
+# Iniciar o servidor Flask
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
