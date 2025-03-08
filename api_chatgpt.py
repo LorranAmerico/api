@@ -14,17 +14,15 @@ app = Flask(__name__)
 # Função para buscar dados na API de referência
 def buscar_referencia(codigo):
     url = f"{API_URL}?Codigo%20da%20Referencia={codigo}"
-    response = requests.get(url)
-    
-    if response.status_code == 200:
+    try:
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
         dados = response.json()
         if dados:
             return dados[0]  # Retorna o primeiro item da lista
         return {"erro": "Nenhum dado encontrado para esta referência"}
-    elif response.status_code == 404:
-        return {"erro": "Referência não encontrada"}
-    else:
-        return {"erro": f"Falha na comunicação com a API: {response.status_code}"}
+    except requests.exceptions.RequestException as e:
+        return {"erro": f"Falha na comunicação com a API: {str(e)}"}
 
 @app.route('/ping')
 def ping():
@@ -33,19 +31,22 @@ def ping():
 # Função para interpretar a mensagem do usuário e decidir se deve buscar na API ou usar a IA
 def interpretar_mensagem(user_message):
     palavras_chave = ["referência", "código", "produto", "buscar", "detalhes", "informações"]
-    for palavra in palavras_chave:
-        if palavra in user_message.lower():
-            palavras = user_message.split()
-            for palavra in palavras:
-                if palavra.isdigit():  # Se encontrar um número na mensagem
-                    resultado = buscar_referencia(palavra)
-                    if "erro" in resultado:
-                        return resultado["erro"]
-                    return f"Detalhes da referência {palavra}: {resultado}"
+    palavras = user_message.lower().split()
     
-    # Se não encontrar palavras-chave, chamar o ChatGPT
+    for palavra in palavras:
+        if palavra.isdigit():  # Se encontrar um número na mensagem, busca na API
+            resultado = buscar_referencia(palavra)
+            if "erro" in resultado:
+                return resultado["erro"]
+            return (f"Detalhes da referência {palavra}: \n"
+                    f"Descrição: {resultado.get('Descricao da Referencia', 'N/A')}\n"
+                    f"Grupo: {resultado.get('Grupo', 'N/A')}\n"
+                    f"SubGrupo: {resultado.get('SubGrupo1', 'N/A')}\n"
+                    f"Valor de Venda: R${resultado.get('Venda_Valor', 'N/A')}")
+    
+    # Se não encontrar números, chamar o ChatGPT
     try:
-        client = openai.Client(api_key=OPENAI_API_KEY)
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "system", "content": "Você é um assistente que responde com base na API Excel Bot."},
@@ -70,4 +71,5 @@ def chat():
 # Rodar o servidor
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
